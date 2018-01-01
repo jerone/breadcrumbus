@@ -68,11 +68,17 @@
     function UriService() {
         return {
             get: (url) => {
-                let uri = new URL(url);
-                let host = new UriPart(contracts.UriPartHost, uri.origin, uri.hostname);
-                let path = uri.pathname.split(/(?=\/)/g).filter(t => t.length > 1);
-                let protocol = `${uri.protocol}//`;
-
+				let uri = new URL(url);
+	            const special = uri.protocol === "about:";
+	            let origin = special ? uri.protocol : uri.origin;
+				let host;
+				if (special) {
+		            host = new UriPart(contracts.UriPartHost, "about:about", "about:");
+	            } else {
+					host = new UriPart(contracts.UriPartHost, origin, uri.hostname);
+	            }
+	            let path = uri.pathname.split(/(?=\/)/g).filter(t => t.length > 1);
+				let protocol = special ? uri.protocol : `${uri.protocol}//`;
                 let parsedUri = psl.parse(uri.hostname);
                 let subdomains = [];
 
@@ -84,23 +90,22 @@
                         return new UriPart(contracts.UriPartSubdomain, `${protocol}${[t, ...a.slice(i+1)].join(".")}.${parsedUri.domain}`, `${t}.`);
                     });
 
-                    host = new UriPart(contracts.UriPartHost, `${protocol}${parsedUri.domain}`, parsedUri.domain)
+	                host = new UriPart(contracts.UriPartHost, `${protocol}${parsedUri.domain}`, parsedUri.domain);
                 }
 
                 let pathParts = path.length > 0 ? path.reduce((acc, item) => {
                     acc.items.push(new UriPart(contracts.UriParthPath, acc.uri = acc.uri += item, item));
                     return acc;
-                }, { items: [], uri: uri.origin }).items : [];
+				}, { items: [], uri: origin }).items : [];
 
                 let search = uri.search.split(/(?=&)/g).filter(t => t.length > 1);
 
                 let searchParts = search.length > 0 ? search.reduce((acc, item) => {
                     acc.items.push(new UriPart(contracts.UriPartSearch, acc.uri = acc.uri += item, item));
                     return acc;
-                },  { items: [], uri: `${uri.origin}${uri.pathname}` }).items : [];
+				}, { items: [], uri: `${origin}${uri.pathname}` }).items : [];
 
-                let hash = uri.hash === "" ? [] : [ new UriPart(contracts.UriPartHash, `${uri.origin}${uri.pathname}${uri.search}${uri.hash}`, uri.hash) ];
-
+				let hash = uri.hash === "" ? [] : [new UriPart(contracts.UriPartHash, `${origin}${uri.pathname}${uri.search}${uri.hash}`, uri.hash) ];
                 return {
                     uriParts: [...subdomains, host, ...pathParts, ...searchParts, ...hash],
                     uri: uri
